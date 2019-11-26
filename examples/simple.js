@@ -61,7 +61,6 @@ class Simple extends React.Component {
   }
 
   handleOnEndReached = () => {
-    console.log('aaa')
     dataSource.push('A', 'B', 'C', 'D', 'E')
     this.setState({
       dataSource

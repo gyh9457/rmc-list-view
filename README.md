@@ -11,10 +11,25 @@ npm i @gem-mine/rmc-list-view
 ## Usage
 
 ```js
-var InputNumber = require('@gem-mine/rmc-input-number');
-var React = require('react');
-var ReactDOM = require('react-dom');
-ReactDOM.render(<InputNumber defaultValue={19}/>, container);
+import React from 'react'
+import { ListView } from '@gem-mine/rmc-list-view'
+
+const dataSource = ['A', 'B', 'C', 'D', 'E', 'F']
+
+class Demo extends React.Component {
+  renderItem = (data) => (
+    <div>{data}</div>
+  )
+
+  render() {
+    return (
+      <ListView
+        dataSource={dataSource}
+        renderItem={this.renderItem}
+      >
+    )
+  }
+}
 ```
 
 ## Development
@@ -92,9 +107,9 @@ http://127.0.0.1:8000/examples/
           <td>How many rows to render on initial component mount</td>
         </tr>
         <tr>
-          <td>endReachedThreshold</td>
+          <td>onEndReachedThreshold</td>
           <td>number</td>
-          <td></td>
+          <td>10</td>
           <td>Threshold in pixels for calling onEndReached</td>
         </tr>
         <tr>
@@ -105,7 +120,7 @@ http://127.0.0.1:8000/examples/
         </tr>
         <tr>
           <td>onScroll</td>
-          <td>() => void</td>
+          <td>(e) => void</td>
           <td></td>
           <td>Fires at most once per frame during scrolling. The frequency of the events can be controlled using the scrollEventThrottle prop</td>
         </tr>
@@ -132,6 +147,12 @@ http://127.0.0.1:8000/examples/
           <td>React.ReactElement</td>
           <td></td>
           <td>pullToRefresh container element </td>
+        </tr>
+        <tr>
+          <td>renderSectionWrapper</td>
+          <td>React.ReactElement</td>
+          <td></td>
+          <td>render listview section wrapper component</td>
         </tr>
     </tbody>
 </table>

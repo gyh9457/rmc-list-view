@@ -7,22 +7,21 @@ export interface PropsType {
   style?: React.CSSProperties;
   prefixCls?: string;
   dataSource: object[] | string[];
-  renderItem: (arg: object | string, index: number) => React.ReactNode;
+  renderItem: (arg: object | string, index?: number) => React.ReactNode;
   renderHeader?: () => React.ReactNode;
   renderFooter?: () => React.ReactNode;
   sections?: string[]; // 索引列表的值
-  renderSection?: (arg: object | string) => React.ReactNode; // 渲染每个小节的索引
+  renderSection?: (data: string) => React.ReactNode; // 渲染每个小节的索引
   pageSize?: number; // 每次渲染的行数
   initialListSize?: number; // 首屏渲染行数
   onEndReached?: () => void; // 列表滚动到距离底部一定距离时触发
   onEndReachedThreshold?: number; // 调用 onEndReached 之前的临界值
-  onScroll?: () => void; // 滚动监听函数
+  onScroll?: (e: React.SyntheticEvent) => void; // 滚动监听函数
   scrollEventThrottle?: number; // 滚动事件被监听的频率 待定
   renderBodyComponent?: () => React.ReactElement; // 自定义 ListView 容器
   scrollRenderAheadDistance?: number; // 当一行接近屏幕范围多少像素之内的时候，就开始渲染这一行
   useBodyScroll?: boolean; // 使用 body 作为滚动容器
-  sticky?: boolean; // 小节标题是否吸顶，与 sections 配合使用
-  renderSectionWrapper?: (arg: object | string, index: number) => React.ReactElement; // 渲染自定义的区块包裹组件
+  renderSectionWrapper?: (data: string, index: number) => React.ReactElement; // 渲染自定义的区块包裹组件
   pullToRefresh?: React.ReactElement; // 下拉刷新组件
 }
 
@@ -46,7 +45,7 @@ export default class ListView extends React.Component<PropsType, StateTypes> {
     prefixCls: 'rmc-list-view',
     initialListSize: 10,
     pageSize: 10,
-    onEndReachedThreshold: 0,
+    onEndReachedThreshold: 10,
     scrollEventThrottle: 50,
     renderBodyComponent: () => <div />,
     scrollRenderAheadDistance: 1000,
@@ -73,6 +72,25 @@ export default class ListView extends React.Component<PropsType, StateTypes> {
     };
   }
 
+  componentWillReceiveProps(nextProps: PropsType) {
+    const { dataSource, initialListSize } = nextProps;
+    if (dataSource !== this.props.dataSource || initialListSize !== this.props.initialListSize) {
+      this.setState((state) => {
+        return {
+          curRenderedCount: Math.min(
+            Math.max(
+              state.curRenderedCount,
+              nextProps.initialListSize!
+            ),
+            this.getTotalCount(nextProps)
+          )
+        };
+      }, () => {
+        this.renderMore();
+      });
+    }
+  }
+
   componentDidMount() {
     if (this.props.useBodyScroll) {
       window.addEventListener('scroll', throttleByAnimationFrame(this.handleScroll));
@@ -89,8 +107,8 @@ export default class ListView extends React.Component<PropsType, StateTypes> {
     }
   }
 
-  getTotalCount = () => {
-    const { sections, dataSource } = this.props;
+  getTotalCount = (props: PropsType) => {
+    const { sections, dataSource } = props;
     if (sections) {
       return (dataSource as SectionData[]).reduce((total: number, item: SectionData) => {
         return total + item.data.length;
@@ -104,7 +122,7 @@ export default class ListView extends React.Component<PropsType, StateTypes> {
     const Body = renderBodyComponent!();
     const bodyComponents = [];
     let rowCount;
-    const totalCount = this.getTotalCount();
+    const totalCount = this.getTotalCount(this.props);
     // 区分是否带 sections
     if (sections) {
       rowCount = Math.min(totalCount, this.state.curRenderedCount);
@@ -116,7 +134,7 @@ export default class ListView extends React.Component<PropsType, StateTypes> {
         const data = (dataSource as SectionData[]).filter((item: { category: string, data: string[]}) => {
           return item.category === sections[i];
         })[0].data;
-        if (renderSectionWrapper) { // 包裹一层 react-sticky
+        if (renderSectionWrapper) {
           const Container = renderSectionWrapper!(sections[i], i);
           const Section = renderSection!(sections[i]);
           curRows ++;
@@ -148,14 +166,14 @@ export default class ListView extends React.Component<PropsType, StateTypes> {
         bodyComponents.push(renderItem(dataSource[i], i));
       }
     }
-    return React.cloneElement(Body, {}, bodyComponents); // todo 添加子项
+    return React.cloneElement(Body, {}, bodyComponents);
   }
 
   callOnEndReached = () => {
     const { onEndReached, onEndReachedThreshold } = this.props;
     const { curRenderedCount } = this.state;
     const distanceFromEnd = this.getDistanceFromEnd();
-    if (curRenderedCount === this.getTotalCount()
+    if (curRenderedCount === this.getTotalCount(this.props)
       && distanceFromEnd < onEndReachedThreshold!
       && this.sentEndForContentLength !== this.scrollProperties.contentLength) {
       this.sentEndForContentLength = this.scrollProperties.contentLength;
@@ -168,13 +186,13 @@ export default class ListView extends React.Component<PropsType, StateTypes> {
   renderMore = () => {
     const { scrollRenderAheadDistance, pageSize } = this.props;
     const { curRenderedCount } = this.state;
-    if (curRenderedCount === this.getTotalCount()) {
+    if (curRenderedCount === this.getTotalCount(this.props)) {
       return;
     }
     const distanceFromEnd = this.getDistanceFromEnd();
     if (distanceFromEnd < scrollRenderAheadDistance!) {
       this.setState({
-        curRenderedCount: Math.min(curRenderedCount + pageSize!, this.getTotalCount())
+        curRenderedCount: Math.min(curRenderedCount + pageSize!, this.getTotalCount(this.props))
       });
     }
   }
@@ -191,7 +209,6 @@ export default class ListView extends React.Component<PropsType, StateTypes> {
       // and add new `document.scrollingElement`(chrome61, iOS support).
       // In old-android-browser and iOS `document.documentElement.scrollTop` is invalid.
       const scrollNode = document.scrollingElement ? document.scrollingElement : document.body;
-      // todos: Why sometimes do not have `this.ScrollViewRef` ?
       return {
         visibleLength: window.innerHeight,
         contentLength: this.ScrollViewRef ? this.ScrollViewRef.scrollHeight : 0,
@@ -205,7 +222,7 @@ export default class ListView extends React.Component<PropsType, StateTypes> {
     };
   }
 
-  handleScroll = () => {
+  handleScroll = (e: React.SyntheticEvent) => {
     const { onScroll, onEndReached, onEndReachedThreshold } = this.props;
     // when ListView is destroyed
     // onScroll will be triggered because of throttle
@@ -220,7 +237,7 @@ export default class ListView extends React.Component<PropsType, StateTypes> {
     if (onEndReached && this.getDistanceFromEnd() > onEndReachedThreshold!) {
       this.sentEndForContentLength = 0;
     }
-    onScroll && onScroll();
+    onScroll && onScroll(e);
   }
 
   saveScrollViewRef = (node: HTMLDivElement) => {

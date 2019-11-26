@@ -83,7 +83,6 @@ class Sections extends React.Component {
         onEndReached={this.handleOnEndReached}
         sections={sections}
         renderSection={this.renderSection}
-        sticky
         renderSectionWrapper={this.renderSectionWrapper}
         useBodyScroll
       />
